@@ -1,1 +1,2 @@
+wgans info
 
