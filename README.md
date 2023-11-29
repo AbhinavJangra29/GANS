@@ -1,4 +1,4 @@
-#Generative Adversarial Networks (GANs)#
+#Generative Adversarial Networks (GANs)
 Welcome to the world of Generative Adversarial Networks (GANs)! This repository explores the fascinating field of GANs, a type of machine learning model that's great at generating new content, whether it's images, text, or more.
 
 What are GANs?
