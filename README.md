@@ -58,6 +58,8 @@ CycleGAN extends GANs for unpaired image translation. It can learn to transform 
 
 In the GAN training process, the generator takes input from the latent space to create an image. This generated image is then presented to the discriminator for evaluation. The discriminator's role is to classify the generated image as either fake or real based on its quality. If the discriminator correctly identifies the image as fake, the generator adjusts its parameters accordingly during training. The discriminator strives to accurately classify every image, while the generator aims to produce images that deceive the discriminator, leading it to classify them as real. This iterative adversarial dynamic continues until the generator consistently generates images that closely resemble real data, achieving the desired outcome.
 
+<h3>so just sit back relax and grab a pen and a page and get started</h3>
+
 
 
 
