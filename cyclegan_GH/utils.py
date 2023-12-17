@@ -1,3 +1,7 @@
+#contains all the helper functions like saving,loading checkpoints and seeding
+#dont spend much time trying to figure out this code
+#take help of gpt as i did
+
 import random, torch, os, numpy as np
 import torch.nn as nn
 import config
