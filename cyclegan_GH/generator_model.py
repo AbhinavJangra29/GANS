@@ -1,35 +1,29 @@
-"""
-Generator model for CycleGAN
-
-Programmed by Aladdin Persson <aladdin.persson at hotmail dot com>
-* 2020-11-05: Initial coding
-* 2022-12-21: Small revision of code, checked that it works with latest PyTorch version
-"""
-
 import torch
 import torch.nn as nn
 
 
 class ConvBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, down=True, use_act=True, **kwargs):
+    
+    def __init__(self, in_channels, out_channels, down=True, use_act=True, **kwargs):#kwargs(keyword arguments) lets us pass other args like stride,padding,kern size directly when we call it later
         super().__init__()
         self.conv = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, padding_mode="reflect", **kwargs)
             if down
             else nn.ConvTranspose2d(in_channels, out_channels, **kwargs),
-            nn.InstanceNorm2d(out_channels),
-            nn.ReLU(inplace=True) if use_act else nn.Identity(),
+            nn.InstanceNorm2d(out_channels),#in paper they used instancenorm
+            nn.ReLU(inplace=True) if use_act else nn.Identity(),#identity doesnt change anything
         )
 
     def forward(self, x):
         return self.conv(x)
 
-
+#the generator also uses residual blocks
+#a residual block simply returns (input+response of the network on that input)
 class ResidualBlock(nn.Module):
     def __init__(self, channels):
         super().__init__()
         self.block = nn.Sequential(
-            ConvBlock(channels, channels, kernel_size=3, padding=1),
+            ConvBlock(channels, channels, kernel_size=3, padding=1),#kernel_size and padding are the **kwargs we talked about earlier
             ConvBlock(channels, channels, use_act=False, kernel_size=3, padding=1),
         )
 
@@ -40,6 +34,7 @@ class ResidualBlock(nn.Module):
 class Generator(nn.Module):
     def __init__(self, img_channels, num_features=64, num_residuals=9):
         super().__init__()
+        #initial conv layers
         self.initial = nn.Sequential(
             nn.Conv2d(
                 img_channels,
@@ -52,6 +47,7 @@ class Generator(nn.Module):
             nn.InstanceNorm2d(num_features),
             nn.ReLU(inplace=True),
         )
+        #downsampling layers(encoder)
         self.down_blocks = nn.ModuleList(
             [
                 ConvBlock(
@@ -66,9 +62,11 @@ class Generator(nn.Module):
                 ),
             ]
         )
+        #residual block
         self.res_blocks = nn.Sequential(
             *[ResidualBlock(num_features * 4) for _ in range(num_residuals)]
         )
+        #upsampling layers(decoder)
         self.up_blocks = nn.ModuleList(
             [
                 ConvBlock(
@@ -91,7 +89,7 @@ class Generator(nn.Module):
                 ),
             ]
         )
-
+        #last conv layer to make a 3(or 1) channel constructed image
         self.last = nn.Conv2d(
             num_features * 1,
             img_channels,
@@ -108,9 +106,9 @@ class Generator(nn.Module):
         x = self.res_blocks(x)
         for layer in self.up_blocks:
             x = layer(x)
-        return torch.tanh(self.last(x))
+        return torch.tanh(self.last(x))#tanh activation is used in the paper
 
-
+#sample testcase to check the shapes
 def test():
     img_channels = 3
     img_size = 256
