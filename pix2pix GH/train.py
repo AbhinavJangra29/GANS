@@ -23,13 +23,14 @@ def train_fn(
         y = y.to(config.DEVICE)
 
         # Train Discriminator
+        #to use grascalers we make a autocast block like this one
         with torch.cuda.amp.autocast():
             y_fake = gen(x)
-            #real mapping x-->y
-            #fake mapping x-->y_fake
+            #real sample x-->y
+            #fake sample x-->y_fake
             D_real = disc(x, y)
             D_real_loss = bce(D_real, torch.ones_like(D_real))
-            D_fake = disc(x, y_fake.detach())
+            D_fake = disc(x, y_fake.detach())#.detach saves the response on that particular instance to also train the generator
             D_fake_loss = bce(D_fake, torch.zeros_like(D_fake))
             D_loss = (D_real_loss + D_fake_loss) / 2
 
@@ -61,11 +62,13 @@ def train_fn(
 def main():
     disc = Discriminator(in_channels=3).to(config.DEVICE)
     gen = Generator(in_channels=3, features=64).to(config.DEVICE)
+    #betas=momentum rate for adam optimizer
     opt_disc = optim.Adam(disc.parameters(), lr=config.LEARNING_RATE, betas=(0.5, 0.999),)
     opt_gen = optim.Adam(gen.parameters(), lr=config.LEARNING_RATE, betas=(0.5, 0.999))
     BCE = nn.BCEWithLogitsLoss()
-    L1_LOSS = nn.L1Loss()
+    L1_LOSS = nn.L1Loss()#l1 loss=pixelwise difference loss between y and y_fake
 
+    #if load model is set to true it loads saved model parametres
     if config.LOAD_MODEL:
         load_checkpoint(
             config.CHECKPOINT_GEN, gen, opt_gen, config.LEARNING_RATE,
@@ -74,6 +77,7 @@ def main():
             config.CHECKPOINT_DISC, disc, opt_disc, config.LEARNING_RATE,
         )
 
+    #setting the train directories
     train_dataset = MapDataset(root_dir=config.TRAIN_DIR)
     train_loader = DataLoader(
         train_dataset,
@@ -81,6 +85,8 @@ def main():
         shuffle=True,
         num_workers=config.NUM_WORKERS,
     )
+    #gradscaler is used for precision during grad calculation , in the paper it is used
+    #also prevents numerical instability
     g_scaler = torch.cuda.amp.GradScaler()
     d_scaler = torch.cuda.amp.GradScaler()
     val_dataset = MapDataset(root_dir=config.VAL_DIR)
@@ -91,7 +97,7 @@ def main():
             disc, gen, train_loader, opt_disc, opt_gen, L1_LOSS, BCE, g_scaler, d_scaler,
         )
 
-        if config.SAVE_MODEL and epoch % 5 == 0:
+        if config.SAVE_MODEL and epoch % 5 == 0:#save model at every 5th epock
             save_checkpoint(gen, opt_gen, filename=config.CHECKPOINT_GEN)
             save_checkpoint(disc, opt_disc, filename=config.CHECKPOINT_DISC)
 
