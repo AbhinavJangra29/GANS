@@ -1,19 +1,24 @@
 import torch
 import torch.nn as nn
 
-
+#similar conv block
 class Block(nn.Module):
     def __init__(self, in_channels, out_channels, down=True, act="relu", use_dropout=False):
         super(Block, self).__init__()
         self.conv = nn.Sequential(
+            #conv with large strides performs downsampling
             nn.Conv2d(in_channels, out_channels, 4, 2, 1, bias=False, padding_mode="reflect")
             if down
+            #convtranspose2d performs upsampling
+            #reflect padding cant be used on convtranspose
             else nn.ConvTranspose2d(in_channels, out_channels, 4, 2, 1, bias=False),
+            #batchnorm is used in the paper
             nn.BatchNorm2d(out_channels),
             nn.ReLU() if act == "relu" else nn.LeakyReLU(0.2),
         )
 
         self.use_dropout = use_dropout
+        #dropout is also followed from the paper
         self.dropout = nn.Dropout(0.5)
         self.down = down
 
@@ -25,32 +30,34 @@ class Block(nn.Module):
 class Generator(nn.Module):
     def __init__(self, in_channels=3, features=64):
         super().__init__()
+        #we dont use batchnorm in initial layer 
         self.initial_down = nn.Sequential(
             nn.Conv2d(in_channels, features, 4, 2, 1, padding_mode="reflect"),
             nn.LeakyReLU(0.2),
-        )
-        self.down1 = Block(features, features * 2, down=True, act="leaky", use_dropout=False)
+        )#128
+        self.down1 = Block(features, features * 2, down=True, act="leaky", use_dropout=False)#64
         self.down2 = Block(
             features * 2, features * 4, down=True, act="leaky", use_dropout=False
-        )
+        )#32
         self.down3 = Block(
             features * 4, features * 8, down=True, act="leaky", use_dropout=False
-        )
+        )#16
         self.down4 = Block(
             features * 8, features * 8, down=True, act="leaky", use_dropout=False
-        )
+        )#8
         self.down5 = Block(
             features * 8, features * 8, down=True, act="leaky", use_dropout=False
-        )
+        )#4
         self.down6 = Block(
             features * 8, features * 8, down=True, act="leaky", use_dropout=False
-        )
+        )#2
+        #bottlemeck compressed info and increases channel (depth)
         self.bottleneck = nn.Sequential(
-            nn.Conv2d(features * 8, features * 8, 4, 2, 1), nn.ReLU()
+            nn.Conv2d(features * 8, features * 8, 4, 2, 1), nn.ReLU()#1x1
         )
 
         self.up1 = Block(features * 8, features * 8, down=False, act="relu", use_dropout=True)
-        self.up2 = Block(
+        self.up2 = Block(#in channels times 2 due to concatenation of incoming, also to facilitate skip connections
             features * 8 * 2, features * 8, down=False, act="relu", use_dropout=True
         )
         self.up3 = Block(
@@ -68,6 +75,7 @@ class Generator(nn.Module):
         self.up7 = Block(features * 2 * 2, features, down=False, act="relu", use_dropout=False)
         self.final_up = nn.Sequential(
             nn.ConvTranspose2d(features * 2, in_channels, kernel_size=4, stride=2, padding=1),
+            #we can use sigmoid but paper used tanh activation
             nn.Tanh(),
         )
 
