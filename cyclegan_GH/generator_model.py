@@ -109,6 +109,7 @@ class Generator(nn.Module):
         return torch.tanh(self.last(x))#tanh activation is used in the paper
 
 #sample testcase to check the shapes
+#output should be exactly the same shape as input cus we are just converting the domain
 def test():
     img_channels = 3
     img_size = 256
