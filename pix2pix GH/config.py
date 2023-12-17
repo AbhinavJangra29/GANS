@@ -1,4 +1,10 @@
+#contains all the hyperparameters dont change it much
+#if you download the trained models parameters set the load model to true
+#if u wish to save parameters set save model to true
+#num workers is the no. of subprocesses created for data loading in pytorch
+
 import torch
+#album is used for augmentation
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
