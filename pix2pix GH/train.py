@@ -44,7 +44,7 @@ def train_fn(
             D_fake = disc(x, y_fake)
             G_fake_loss = bce(D_fake, torch.ones_like(D_fake))
             #l1 loss=patchiwse difference between pixels
-            L1 = l1_loss(y_fake, y) * config.L1_LAMBDA
+            L1 = l1_loss(y_fake, y) * config.L1_LAMBDA#l1 lambda is also a hp 
             G_loss = G_fake_loss + L1
 
         opt_gen.zero_grad()
