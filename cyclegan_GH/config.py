@@ -1,35 +1,29 @@
-import random, torch, os, numpy as np
-import torch.nn as nn
-import config
-import copy
-
-def save_checkpoint(model, optimizer, filename="my_checkpoint.pth.tar"):
-    print("=> Saving checkpoint")
-    checkpoint = {
-        "state_dict": model.state_dict(),
-        "optimizer": optimizer.state_dict(),
-    }
-    torch.save(checkpoint, filename)
-
-
-def load_checkpoint(checkpoint_file, model, optimizer, lr):
-    print("=> Loading checkpoint")
-    checkpoint = torch.load(checkpoint_file, map_location=config.DEVICE)
-    model.load_state_dict(checkpoint["state_dict"])
-    optimizer.load_state_dict(checkpoint["optimizer"])
-
-    # If we don't do this then it will just have learning rate of old checkpoint
-    # and it will lead to many hours of debugging \:
-    for param_group in optimizer.param_groups:
-        param_group["lr"] = lr
-
-
-def seed_everything(seed=42):
-    os.environ["PYTHONHASHSEED"] = str(seed)
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
+import torch
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
+#all the hyperparameters
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+TRAIN_DIR = "data/train"
+VAL_DIR = "data/val"
+BATCH_SIZE = 1
+LEARNING_RATE = 1e-5
+LAMBDA_IDENTITY = 0.0
+LAMBDA_CYCLE = 10
+NUM_WORKERS = 4
+NUM_EPOCHS = 10
+LOAD_MODEL = False#set it to true to load saved parameters
+SAVE_MODEL = True
+CHECKPOINT_GEN_H = "genh.pth.tar"
+CHECKPOINT_GEN_Z = "genz.pth.tar"
+CHECKPOINT_CRITIC_H = "critich.pth.tar"
+CHECKPOINT_CRITIC_Z = "criticz.pth.tar"
+#augmentations
+transforms = A.Compose(
+    [
+        A.Resize(width=256, height=256),
+        A.HorizontalFlip(p=0.5),
+        A.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], max_pixel_value=255),
+        ToTensorV2(),
+    ],
+    additional_targets={"image0": "image"},
+)
