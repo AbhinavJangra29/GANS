@@ -1,3 +1,4 @@
+#all the necessary libraries and files
 import torch
 from dataset import HorseZebraDataset
 import sys
@@ -22,15 +23,16 @@ def train_fn(disc_H, disc_Z, gen_Z, gen_H, loader, opt_disc, opt_gen, l1, mse, d
 
         # Train Discriminators H and Z
         with torch.cuda.amp.autocast():
-            fake_horse = gen_H(zebra)
-            D_H_real = disc_H(horse)
-            D_H_fake = disc_H(fake_horse.detach())
-            H_reals += D_H_real.mean().item()
-            H_fakes += D_H_fake.mean().item()
-            D_H_real_loss = mse(D_H_real, torch.ones_like(D_H_real))
-            D_H_fake_loss = mse(D_H_fake, torch.zeros_like(D_H_fake))
-            D_H_loss = D_H_real_loss + D_H_fake_loss
+            fake_horse = gen_H(zebra)#we sent a zebra image in horse generator , output is a fake horse(because it was originally a zebra)
+            D_H_real = disc_H(horse)#response of horse discriminator on a real horse image
+            D_H_fake = disc_H(fake_horse.detach())#response of horse discriminator on fake horse image,detach helps us use the particular instance while training generator on the particular sample
+            ##H_reals += D_H_real.mean().item()
+            ##H_fakes += D_H_fake.mean().item()
+            D_H_real_loss = mse(D_H_real, torch.ones_like(D_H_real))#response on real image should be 1
+            D_H_fake_loss = mse(D_H_fake, torch.zeros_like(D_H_fake))#response on fake should be 0
+            D_H_loss = D_H_real_loss + D_H_fake_loss#total horse loss
 
+            #similarly for zebras
             fake_zebra = gen_Z(horse)
             D_Z_real = disc_Z(zebra)
             D_Z_fake = disc_Z(fake_zebra.detach())
@@ -38,7 +40,7 @@ def train_fn(disc_H, disc_Z, gen_Z, gen_H, loader, opt_disc, opt_gen, l1, mse, d
             D_Z_fake_loss = mse(D_Z_fake, torch.zeros_like(D_Z_fake))
             D_Z_loss = D_Z_real_loss + D_Z_fake_loss
 
-            # put it togethor
+            # put it togethor, take mean
             D_loss = (D_H_loss + D_Z_loss) / 2
 
         opt_disc.zero_grad()
@@ -47,27 +49,30 @@ def train_fn(disc_H, disc_Z, gen_Z, gen_H, loader, opt_disc, opt_gen, l1, mse, d
         d_scaler.update()
 
         # Train Generators H and Z
-        with torch.cuda.amp.autocast():
+        with torch.cuda.amp.autocast():#autocast helps by providing precision alculating gradients and smooth flow of gradients
             # adversarial loss for both generators
             D_H_fake = disc_H(fake_horse)
             D_Z_fake = disc_Z(fake_zebra)
-            loss_G_H = mse(D_H_fake, torch.ones_like(D_H_fake))
+            loss_G_H = mse(D_H_fake, torch.ones_like(D_H_fake))#the detached D_h_fake are used in this portion
             loss_G_Z = mse(D_Z_fake, torch.ones_like(D_Z_fake))
 
             # cycle loss
+            #we did zebra->horse generator->fake horse
+            #now we put that fake horse->zebra generator->to get the potential original parent zebra 
             cycle_zebra = gen_Z(fake_horse)
             cycle_horse = gen_H(fake_zebra)
-            cycle_zebra_loss = l1(zebra, cycle_zebra)
+            cycle_zebra_loss = l1(zebra, cycle_zebra)#we take the pixel wise diff of the orginal zebra and the reconstructed zebra
             cycle_horse_loss = l1(horse, cycle_horse)
 
             # identity loss (remove these for efficiency if you set lambda_identity=0)
-            #translated image og image se kitni deviate krri
+            #we put the horse image in the horse generator and ideally it shouldnot change the image , so we train on that too
+            #similar for zebra
             identity_zebra = gen_Z(zebra)
             identity_horse = gen_H(horse)
             identity_zebra_loss = l1(zebra, identity_zebra)
             identity_horse_loss = l1(horse, identity_horse)
 
-            # add all togethor
+            # add all togethor,lambda_cycle and lambda_identity are hyperparameters
             G_loss = (
                     loss_G_Z
                     + loss_G_H
@@ -81,7 +86,7 @@ def train_fn(disc_H, disc_Z, gen_Z, gen_H, loader, opt_disc, opt_gen, l1, mse, d
         g_scaler.scale(G_loss).backward()
         g_scaler.step(opt_gen)
         g_scaler.update()
-
+        #save every 200th sample
         if idx % 200 == 0:
             save_image(fake_horse * 0.5 + 0.5, f"saved_images/horse_{idx}.png")
             save_image(fake_zebra * 0.5 + 0.5, f"saved_images/zebra_{idx}.png")
@@ -90,15 +95,18 @@ def train_fn(disc_H, disc_Z, gen_Z, gen_H, loader, opt_disc, opt_gen, l1, mse, d
 
 
 def main():
+    
+    #initialising the 2 generators and 2 discriminators
     #disc_h==classifies image of horses(real horse/fake horse)
     disc_H = Discriminator(in_channels=3).to(config.DEVICE)
     disc_Z = Discriminator(in_channels=3).to(config.DEVICE)
     gen_Z = Generator(img_channels=3, num_residuals=9).to(config.DEVICE)
     gen_H = Generator(img_channels=3, num_residuals=9).to(config.DEVICE)
+    #we optimise pair of discriminators and gens
     opt_disc = optim.Adam(
         list(disc_H.parameters()) + list(disc_Z.parameters()),
         lr=config.LEARNING_RATE,
-        betas=(0.5, 0.999),
+        betas=(0.5, 0.999),#momentum rates  for adam specified by the paper
     )
 
     opt_gen = optim.Adam(
@@ -107,9 +115,10 @@ def main():
         betas=(0.5, 0.999),
     )
 
-    L1 = nn.L1Loss()
-    mse = nn.MSELoss()
+    L1 = nn.L1Loss()#pixel wise loss
+    mse = nn.MSELoss()#for adversarial loss we use mse
 
+    #if loadcheckpoint is set to true in config.py ,all the 4 architectures will load pretrained weights
     if config.LOAD_MODEL:
         load_checkpoint(
             config.CHECKPOINT_GEN_H,
@@ -124,7 +133,7 @@ def main():
             config.LEARNING_RATE,
         )
         load_checkpoint(
-            config.CHECKPOINT_CRITIC_H,
+            config.CHECKPOINT_CRITIC_H,#critic=discriminator
             disc_H,
             opt_disc,
             config.LEARNING_RATE,
@@ -159,7 +168,7 @@ def main():
         num_workers=config.NUM_WORKERS,
         pin_memory=True,
     )
-    g_scaler = torch.cuda.amp.GradScaler()
+    g_scaler = torch.cuda.amp.GradScaler()#autocast is used with scalers, they work simply like loss.backward but better in precision
     d_scaler = torch.cuda.amp.GradScaler()
 
     for epoch in range(config.NUM_EPOCHS):
@@ -176,7 +185,7 @@ def main():
             d_scaler,
             g_scaler,
         )
-
+        #saving parameters at certain epochs
         if config.SAVE_MODEL:
             save_checkpoint(gen_H, opt_gen, filename=config.CHECKPOINT_GEN_H)
             save_checkpoint(gen_Z, opt_gen, filename=config.CHECKPOINT_GEN_Z)
