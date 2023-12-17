@@ -1,3 +1,9 @@
+#contains additional scripts to save images generated during training
+#also saves model at certain epochs
+#you need not to know all of this stuff to the very detail
+#i also took help of chatgpt :D
+
+
 import torch
 import config
 from torchvision.utils import save_image
