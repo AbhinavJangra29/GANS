@@ -1,3 +1,4 @@
+#the model implimentation is pretty much same from the dcgan implementation
 class Discriminator(nn.Module):
     def __init__(self, channels_img, features_d):
         super(Discriminator, self).__init__()
