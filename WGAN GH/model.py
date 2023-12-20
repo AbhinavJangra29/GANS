@@ -14,6 +14,7 @@ class Discriminator(nn.Module):
             self._block(features_d * 4, features_d * 8, 4, 2, 1),
             # After all _block img output is 4x4 (Conv2d below makes into 1x1)
             nn.Conv2d(features_d * 8, 1, kernel_size=4, stride=2, padding=0),
+            #sigmoid activation is removed since we are calculating the scores directly
         )
 
     def _block(self, in_channels, out_channels, kernel_size, stride, padding):
