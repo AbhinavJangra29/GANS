@@ -25,5 +25,8 @@ read this amazing article:
 The architecture is simple invloving some basic conv nets, comments are added in the code for more understanding. ;)
 </p>
 
+<h1>CONS</h1>
+weight clipping is a clearly terrible way to enforce the constraint in the diagram(lipschitz contraint) . if the clipping parameter is large then it can take a long time for any weight to reach their limit, thereby making it harder to train the critic till optimality. if clipping is small then it leads to vanishing gradient. So we introduce a new concept called gradient penalty , which is more effective in this case.
+
 
 
