@@ -1,3 +1,4 @@
+#all important libraries
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -11,16 +12,16 @@ from model import Discriminator, Generator, initialize_weights
 
 # Hyperparameters etc
 device = "cuda" if torch.cuda.is_available() else "cpu"
-LEARNING_RATE = 5e-5
+LEARNING_RATE = 5e-5#changed from 2e-4 of dcgan
 BATCH_SIZE = 64
 IMAGE_SIZE = 64
 CHANNELS_IMG = 1
-Z_DIM = 128
+Z_DIM = 100#it was 128 in dcgan
 NUM_EPOCHS = 5
 FEATURES_CRITIC = 64
 FEATURES_GEN = 64
 CRITIC_ITERATIONS = 5
-WEIGHT_CLIP = 0.01
+WEIGHT_CLIP = 0.01#to impose the constraint(1 libschitz continous )in the diagram the found a way to clip the weights between -0.01 and 0.01
 
 transforms = transforms.Compose(
     [
@@ -39,13 +40,14 @@ loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
 
 # initialize gen and disc/critic
 gen = Generator(Z_DIM, CHANNELS_IMG, FEATURES_GEN).to(device)
-critic = Discriminator(CHANNELS_IMG, FEATURES_CRITIC).to(device)
+critic = Discriminator(CHANNELS_IMG, FEATURES_CRITIC).to(device)#name is changed to critic
 initialize_weights(gen)
 initialize_weights(critic)
 
 # initializate optimizer
-opt_gen = optim.RMSprop(gen.parameters(), lr=LEARNING_RATE)
+opt_gen = optim.RMSprop(gen.parameters(), lr=LEARNING_RATE)#in wgan we use rms prop instead of adam , that gets rid of the beta values
 opt_critic = optim.RMSprop(critic.parameters(), lr=LEARNING_RATE)
+#bce loss term is removed , since now we are not worried about loss but the distance between 2 distribution
 
 # for tensorboard plotting
 fixed_noise = torch.randn(32, Z_DIM, 1, 1).to(device)
@@ -63,14 +65,14 @@ for epoch in range(NUM_EPOCHS):
         cur_batch_size = data.shape[0]
 
         # Train Critic: max E[critic(real)] - E[critic(fake)]
-        for _ in range(CRITIC_ITERATIONS):
+        for _ in range(CRITIC_ITERATIONS):#we train the critic more , for every 5 iteration of critic training , generator only goes through 1 iteration
             noise = torch.randn(cur_batch_size, Z_DIM, 1, 1).to(device)
             fake = gen(noise)
-            critic_real = critic(data).reshape(-1)
+            critic_real = critic(data).reshape(-1)#reshape(-1) makes it a flat vector
             critic_fake = critic(fake).reshape(-1)
-            loss_critic = -(torch.mean(critic_real) - torch.mean(critic_fake))
+            loss_critic = -(torch.mean(critic_real) - torch.mean(critic_fake))#critic wants to maximise the distance between both distribution , so it minimises the negative instead
             critic.zero_grad()
-            loss_critic.backward(retain_graph=True)
+            loss_critic.backward(retain_graph=True)#retain graph is set to true to keep a checkpoint of this instance to use in generator training, without this it will get erased instantly rightafter
             opt_critic.step()
 
             # clip critic weights between -0.01, 0.01
@@ -78,8 +80,8 @@ for epoch in range(NUM_EPOCHS):
                 p.data.clamp_(-WEIGHT_CLIP, WEIGHT_CLIP)
 
         # Train Generator: max E[critic(gen_fake)] <-> min -E[critic(gen_fake)]
-        gen_fake = critic(fake).reshape(-1)
-        loss_gen = -torch.mean(gen_fake)
+        gen_fake = critic(fake).reshape(-1)#critics output on fake input
+        loss_gen = -torch.mean(gen_fake)#by minimising the negative we are actually maximising the positive
         gen.zero_grad()
         loss_gen.backward()
         opt_gen.step()
